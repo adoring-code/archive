@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>DOK : 讀 - Archive & Lab</title>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Google API 스크립트 로드 -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -187,6 +190,31 @@
         .icon-btn:hover {
             background: var(--surface-hover);
             border-color: var(--border-focus);
+        }
+
+        .google-auth-btn {
+            background: var(--surface-solid);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 18px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: var(--shadow-sub);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+        .google-auth-btn:hover {
+            background: var(--surface-hover);
+            border-color: var(--border-focus);
+        }
+        .google-auth-btn.linked {
+            border-color: var(--text-main);
+            font-weight: 600;
         }
 
         .record-badge {
@@ -1007,6 +1035,7 @@
                 </div>
             </div>
             <div class="header-right-group">
+                <button class="google-auth-btn" id="googleAuthBtn" onclick="handleGoogleAuth()">구글 연동</button>
                 <div class="record-badge" id="recordBadgeWrap">
                     Total <span class="record-count" id="recordCount">0</span>
                 </div>
@@ -1153,6 +1182,179 @@
     </section>
 
     <script>
+        // --- 구글 드라이브 연동 설정 ---
+        const CLIENT_ID = '723588980151-8fevqbb44ef0finvco6ikmc5969h88e2.apps.googleusercontent.com';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let isGoogleLinked = false;
+        let googleFileId = null;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            });
+            gapiInited = true;
+            maybeEnableGoogleFeature();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', // 나중에 동적으로 처리
+            });
+            gisInited = true;
+            maybeEnableGoogleFeature();
+        }
+
+        function maybeEnableGoogleFeature() {
+            if (gapiInited && gisInited) {
+                // 이미 인증 토큰이 기억되어 있다면 자동 동기화 시도 가능
+                const savedToken = localStorage.getItem('dok_google_token');
+                if (savedToken) {
+                    gapi.client.setToken({ access_token: savedToken });
+                    verifyAndSyncData(true);
+                }
+            }
+        }
+
+        window.handleGoogleAuth = function() {
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    alert('구글 연동에 실패했습니다.');
+                    return;
+                }
+                localStorage.setItem('dok_google_token', resp.access_token);
+                updateAuthButtonUI(true);
+                await verifyAndSyncData(false);
+                alert('구글 드라이브와 성공적으로 연동되었습니다!');
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                tokenClient.requestAccessToken({ prompt: '' });
+            }
+        }
+
+        function updateAuthButtonUI(linked) {
+            isGoogleLinked = linked;
+            const btn = document.getElementById('googleAuthBtn');
+            if (linked) {
+                btn.innerText = '연동됨 ✓';
+                btn.classList.add('linked');
+            } else {
+                btn.innerText = '구글 연동';
+                btn.classList.remove('linked');
+            }
+        }
+
+        async function verifyAndSyncData(isSilent) {
+            try {
+                updateAuthButtonUI(true);
+                // 드라이브 내 앱 전용 폴더에서 백업 파일 찾기
+                const response = await gapi.client.drive.files.list({
+                    q: "name = 'dok_archive_backup.json' and 'appDataFolder' in parents and trashed = false",
+                    spaces: 'appDataFolder',
+                    fields: 'files(id, name)',
+                });
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    googleFileId = files[0].id;
+                    // 파일 내용 불러오기
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: googleFileId,
+                        alt: 'media',
+                    });
+                    const cloudData = fileResponse.result;
+                    if (cloudData) {
+                        if (cloudData.memos) memos = cloudData.memos;
+                        if (cloudData.todos) todos = cloudData.todos;
+                        if (cloudData.labCode) {
+                            document.getElementById('labCodeInput').value = cloudData.labCode;
+                            updateLabCharCount();
+                            updateLabPreview();
+                        }
+                        localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
+                        localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
+                        renderMemos();
+                        renderTodos();
+                        if (!isSilent) console.log('구글 드라이브에서 데이터를 불러왔습니다.');
+                    }
+                } else {
+                    // 파일이 없으면 최초 생성
+                    await uploadDataToGoogleDrive();
+                }
+            } catch (err) {
+                console.error(err);
+                if (!isSilent) alert('구글 드라이브 동기화 중 오류가 발생했습니다.');
+                updateAuthButtonUI(false);
+                localStorage.removeItem('dok_google_token');
+            }
+        }
+
+        async function syncDataToCloud() {
+            if (!isGoogleLinked) return;
+            try {
+                await uploadDataToGoogleDrive();
+            } catch (e) {
+                console.error('자동 백업 실패:', e);
+            }
+        }
+
+        async function uploadDataToGoogleDrive() {
+            const dataToSave = {
+                memos: memos,
+                todos: todos,
+                labCode: document.getElementById('labCodeInput').value
+            };
+            const boundary = '-------314159265358979323846';
+            const delimiter = "\r\n--" + boundary + "\r\n";
+            const close_delim = "\r\n--" + boundary + "--";
+
+            const metadata = {
+                name: 'dok_archive_backup.json',
+                mimeType: 'application/json',
+                ...(googleFileId ? {} : { parents: ['appDataFolder'] })
+            };
+
+            const multipartRequestBody =
+                delimiter +
+                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+                JSON.stringify(metadata) +
+                delimiter +
+                'Content-Type: application/json\r\n\r\n' +
+                JSON.stringify(dataToSave) +
+                close_delim;
+
+            const request = gapi.client.request({
+                path: googleFileId ? `/upload/drive/v3/files/${googleFileId}` : '/upload/drive/v3/files?uploadType=multipart',
+                method: googleFileId ? 'PATCH' : 'POST',
+                headers: {
+                    'Content-Type': 'multipart/related; boundary="' + boundary + '"',
+                },
+                body: multipartRequestBody
+            });
+
+            const response = await request;
+            if (!googleFileId && response.result && response.result.id) {
+                googleFileId = response.result.id;
+            }
+        }
+
+        // 구글 스크립트 비동기 로드 트리거
+        window.onload = function() {
+            gapiLoaded();
+            gisLoaded();
+        };
+
+        // --- 기존 UI 및 로직 ---
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const htmlElement = document.documentElement;
 
@@ -1217,6 +1419,7 @@
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             todoInput.value = '';
             renderTodos();
+            syncDataToCloud();
         }
 
         window.toggleTodo = function(id) {
@@ -1228,12 +1431,14 @@
             });
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             renderTodos();
+            syncDataToCloud();
         }
 
         window.deleteTodo = function(id) {
             todos = todos.filter(t => t.id !== id);
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             renderTodos();
+            syncDataToCloud();
         }
 
         function renderTodos() {
@@ -1492,6 +1697,7 @@
             localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
             switchMainView('archive');
             renderMemos();
+            syncDataToCloud();
         });
 
         window.openEditEditor = function(id) {
@@ -1531,6 +1737,7 @@
                 memos = memos.filter(m => m.id !== id);
                 localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
                 renderMemos();
+                syncDataToCloud();
             }
         }
 
@@ -1595,6 +1802,7 @@
             if (newHeight > 200) newHeight = 200;
             if (newHeight < 44) newHeight = 44;
             labCodeInput.style.height = newHeight + 'px';
+            syncDataToCloud();
         });
 
         labPreviewContent.addEventListener('click', (e) => {
@@ -1707,6 +1915,7 @@
             updateLabCharCount();
             updateLabPreview();
             labCodeInput.focus();
+            syncDataToCloud();
         };
 
         window.copyLabCodeDirect = function() {
