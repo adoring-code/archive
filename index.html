@@ -248,7 +248,7 @@
             .nav-tab-btn { height: 28px; padding: 0 8px; font-size: 0.76rem; }
             .google-auth-btn { height: 32px; padding: 0 10px; font-size: 0.74rem; }
             .icon-btn { width: 32px; height: 32px; }
-            .record-badge { display: none; }
+            .record-badge { height: 32px; padding: 0 10px; font-size: 0.74rem; }
         }
 
         /* --- [섹션 1] 아카이브 --- */
@@ -1045,9 +1045,9 @@
                 </div>
             </div>
             <div class="header-right-group">
-                <button class="google-auth-btn" id="googleAuthBtn" onclick="handleGoogleAuth()">구글 연동</button>
-                <div class="record-badge" id="recordBadgeWrap">
-                    Total <span class="record-count" id="recordCount">0</span>
+                <button class="google-auth-btn" id="googleAuthBtn" onclick="handleGoogleAuth()">연동</button>
+                <div class="record-badge" id="recordBadgeWrap" title="기록 개수">
+                    A.C <span class="record-count" id="recordCount">0</span>
                 </div>
                 <button class="icon-btn" id="themeToggleBtn" title="테마 전환">◐</button>
             </div>
@@ -1259,7 +1259,7 @@
                 btn.innerText = '연동됨 ✓';
                 btn.classList.add('linked');
             } else {
-                btn.innerText = '구글 연동';
+                btn.innerText = '연동';
                 btn.classList.remove('linked');
             }
         }
