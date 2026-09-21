@@ -110,7 +110,7 @@
         .header-left-group {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             min-width: 0;
         }
 
@@ -156,6 +156,14 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            gap: 6px;
+        }
+
+        .nav-tab-abbr {
+            font-size: 0.7rem;
+            font-weight: 700;
+            opacity: 0.6;
+            letter-spacing: 0.03em;
         }
 
         .nav-tab-btn.active {
@@ -163,6 +171,9 @@
             color: var(--text-main);
             font-weight: 600;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+        .nav-tab-btn.active .nav-tab-abbr {
+            opacity: 1;
         }
 
         .header-right-group {
@@ -243,12 +254,12 @@
 
         @media (max-width: 768px) {
             .header-wrap { padding: 8px 12px; gap: 4px; }
-            .header-left-group { gap: 8px; }
+            .header-left-group { gap: 6px; }
             .brand-sub-hanja { display: none; }
-            .nav-tab-btn { height: 28px; padding: 0 8px; font-size: 0.76rem; }
+            .nav-tab-btn { height: 28px; padding: 0 8px; font-size: 0.74rem; gap: 4px; }
             .google-auth-btn { height: 32px; padding: 0 10px; font-size: 0.74rem; }
             .icon-btn { width: 32px; height: 32px; }
-            .record-badge { height: 32px; padding: 0 10px; font-size: 0.74rem; }
+            .record-badge { display: none; }
         }
 
         /* --- [섹션 1] 아카이브 --- */
@@ -1039,15 +1050,15 @@
                     DOK <span class="brand-sub-hanja">: 讀</span>
                 </span>
                 <div class="nav-tabs">
-                    <button class="nav-tab-btn active" onclick="switchMainView('archive')">Archive</button>
-                    <button class="nav-tab-btn" onclick="switchMainView('todo')">Todo</button>
-                    <button class="nav-tab-btn" onclick="switchMainView('lab')">HTML</button>
+                    <button class="nav-tab-btn active" onclick="switchMainView('archive')"><span class="nav-tab-abbr">A.C</span> Archive</button>
+                    <button class="nav-tab-btn" onclick="switchMainView('todo')"><span class="nav-tab-abbr">T.D</span> Todo</button>
+                    <button class="nav-tab-btn" onclick="switchMainView('lab')"><span class="nav-tab-abbr">H.L</span> HTML</button>
                 </div>
             </div>
             <div class="header-right-group">
                 <button class="google-auth-btn" id="googleAuthBtn" onclick="handleGoogleAuth()">연동</button>
-                <div class="record-badge" id="recordBadgeWrap" title="기록 개수">
-                    A.C <span class="record-count" id="recordCount">0</span>
+                <div class="record-badge" id="recordBadgeWrap">
+                    Total <span class="record-count" id="recordCount">0</span>
                 </div>
                 <button class="icon-btn" id="themeToggleBtn" title="테마 전환">◐</button>
             </div>
@@ -1236,7 +1247,7 @@
         window.handleGoogleAuth = function() {
             tokenClient.callback = async (resp) => {
                 if (resp.error !== undefined) {
-                    alert('구글 연동에 실패했습니다.');
+                    alert('연동에 실패했습니다.');
                     return;
                 }
                 localStorage.setItem('dok_google_token', resp.access_token);
