@@ -100,33 +100,33 @@
         .header-wrap {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 10px 20px;
+            padding: 8px 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .header-left-group {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             min-width: 0;
         }
 
         .brand-title {
-            font-size: 1.05rem;
+            font-size: 0.95rem;
             font-weight: 700;
             letter-spacing: -0.01em;
             color: var(--text-main);
             flex-shrink: 0;
             display: flex;
             align-items: baseline;
-            gap: 4px;
+            gap: 3px;
         }
 
         .brand-sub-hanja {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 400;
             color: var(--text-sub);
             letter-spacing: 0.05em;
@@ -137,7 +137,7 @@
             gap: 2px;
             background: var(--surface-solid);
             padding: 2px;
-            border-radius: 10px;
+            border-radius: 8px;
             border: 1px solid var(--border-color);
         }
 
@@ -145,10 +145,10 @@
             background: transparent;
             border: none;
             color: var(--text-sub);
-            height: 30px;
-            padding: 0 10px;
-            border-radius: 8px;
-            font-size: 0.8rem;
+            height: 28px;
+            padding: 0 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -156,14 +156,6 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 6px;
-        }
-
-        .nav-tab-abbr {
-            font-size: 0.7rem;
-            font-weight: 700;
-            opacity: 0.6;
-            letter-spacing: 0.03em;
         }
 
         .nav-tab-btn.active {
@@ -172,14 +164,11 @@
             font-weight: 600;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
         }
-        .nav-tab-btn.active .nav-tab-abbr {
-            opacity: 1;
-        }
 
         .header-right-group {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 5px;
             flex-shrink: 0;
         }
 
@@ -187,14 +176,14 @@
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            width: 34px;
-            height: 34px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             box-shadow: var(--shadow-sub);
             transition: all 0.2s ease;
             flex-shrink: 0;
@@ -208,10 +197,10 @@
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            height: 34px;
-            padding: 0 12px;
-            border-radius: 17px;
-            font-size: 0.76rem;
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 16px;
+            font-size: 0.73rem;
             font-weight: 500;
             cursor: pointer;
             box-shadow: var(--shadow-sub);
@@ -232,13 +221,13 @@
         }
 
         .record-badge {
-            font-size: 0.76rem;
+            font-size: 0.73rem;
             color: var(--text-sub);
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
-            height: 34px;
-            padding: 0 12px;
-            border-radius: 17px;
+            height: 32px;
+            padding: 0 10px;
+            border-radius: 16px;
             font-weight: 500;
             box-shadow: var(--shadow-sub);
             display: inline-flex;
@@ -253,12 +242,12 @@
         }
 
         @media (max-width: 768px) {
-            .header-wrap { padding: 8px 12px; gap: 4px; }
+            .header-wrap { padding: 6px 10px; gap: 4px; }
             .header-left-group { gap: 6px; }
             .brand-sub-hanja { display: none; }
-            .nav-tab-btn { height: 28px; padding: 0 8px; font-size: 0.74rem; gap: 4px; }
-            .google-auth-btn { height: 32px; padding: 0 10px; font-size: 0.74rem; }
-            .icon-btn { width: 32px; height: 32px; }
+            .nav-tab-btn { height: 26px; padding: 0 6px; font-size: 0.72rem; }
+            .google-auth-btn { height: 30px; padding: 0 8px; font-size: 0.7rem; }
+            .icon-btn { width: 30px; height: 30px; }
             .record-badge { display: none; }
         }
 
@@ -1050,9 +1039,9 @@
                     DOK <span class="brand-sub-hanja">: 讀</span>
                 </span>
                 <div class="nav-tabs">
-                    <button class="nav-tab-btn active" onclick="switchMainView('archive')"><span class="nav-tab-abbr">A.C</span> Archive</button>
-                    <button class="nav-tab-btn" onclick="switchMainView('todo')"><span class="nav-tab-abbr">T.D</span> Todo</button>
-                    <button class="nav-tab-btn" onclick="switchMainView('lab')"><span class="nav-tab-abbr">H.L</span> HTML</button>
+                    <button class="nav-tab-btn active" onclick="switchMainView('archive')">Archive</button>
+                    <button class="nav-tab-btn" onclick="switchMainView('todo')">Todo</button>
+                    <button class="nav-tab-btn" onclick="switchMainView('lab')">HTML</button>
                 </div>
             </div>
             <div class="header-right-group">
