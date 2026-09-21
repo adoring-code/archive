@@ -211,9 +211,13 @@
             white-space: nowrap;
             flex-shrink: 0;
         }
-        .google-auth-btn:hover {
+        .google-auth-btn:hover:not(:disabled) {
             background: var(--surface-hover);
             border-color: var(--border-focus);
+        }
+        .google-auth-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
         .google-auth-btn.linked {
             border-color: var(--text-main);
@@ -1217,7 +1221,18 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: '',
+                callback: async (resp) => {
+                    if (resp.error !== undefined) {
+                        setAuthButtonUI('unlinked');
+                        return;
+                    }
+                    const expiresAt = new Date().getTime() + (resp.expires_in * 1000);
+                    localStorage.setItem('dok_google_token', resp.access_token);
+                    localStorage.setItem('dok_google_expires_at', expiresAt);
+                    
+                    gapi.client.setToken({ access_token: resp.access_token });
+                    await verifyAndSyncData(false);
+                }
             });
             gisInited = true;
             maybeEnableGoogleFeature();
@@ -1225,48 +1240,60 @@
 
         function maybeEnableGoogleFeature() {
             if (gapiInited && gisInited) {
-                const savedToken = localStorage.getItem('dok_google_token');
-                if (savedToken) {
-                    gapi.client.setToken({ access_token: savedToken });
-                    verifyAndSyncData(true);
+                checkAndRestoreLogin();
+            }
+        }
+
+        // 로그인 상태 체크 및 자동 복원 / 자동 로그인 시도
+        async function checkAndRestoreLogin() {
+            const savedToken = localStorage.getItem('dok_google_token');
+            const expiresAt = localStorage.getItem('dok_google_expires_at');
+            const now = new Date().getTime();
+
+            if (savedToken && expiresAt && now < expiresAt) {
+                // 1. 유효한 토큰이 로컬에 있으면 바로 적용
+                gapi.client.setToken({ access_token: savedToken });
+                await verifyAndSyncData(true);
+            } else {
+                // 2. 토큰이 만료되었거나 없지만 구글 세션이 남아있다면 백그라운드에서 자동 로그인 시도
+                setAuthButtonUI('syncing');
+                try {
+                    tokenClient.requestAccessToken({ prompt: 'none' });
+                } catch (e) {
+                    setAuthButtonUI('unlinked');
                 }
             }
         }
 
         window.handleGoogleAuth = function() {
-            tokenClient.callback = async (resp) => {
-                if (resp.error !== undefined) {
-                    alert('연동에 실패했습니다.');
-                    return;
-                }
-                localStorage.setItem('dok_google_token', resp.access_token);
-                updateAuthButtonUI(true);
-                await verifyAndSyncData(false);
-                alert('구글 드라이브와 성공적으로 연동되었습니다!');
-            };
-
-            if (gapi.client.getToken() === null) {
-                tokenClient.requestAccessToken({ prompt: 'consent' });
-            } else {
-                tokenClient.requestAccessToken({ prompt: '' });
-            }
+            setAuthButtonUI('syncing');
+            tokenClient.requestAccessToken({ prompt: 'consent' });
         }
 
-        function updateAuthButtonUI(linked) {
-            isGoogleLinked = linked;
+        function setAuthButtonUI(status) {
             const btn = document.getElementById('googleAuthBtn');
-            if (linked) {
+            if (status === 'linked') {
+                isGoogleLinked = true;
                 btn.innerText = '연동됨 ✓';
+                btn.disabled = false;
                 btn.classList.add('linked');
-            } else {
-                btn.innerText = '연동';
+            } else if (status === 'syncing') {
+                btn.innerText = '연동 중...';
+                btn.disabled = true;
                 btn.classList.remove('linked');
+            } else {
+                isGoogleLinked = false;
+                btn.innerText = '연동';
+                btn.disabled = false;
+                btn.classList.remove('linked');
+                localStorage.removeItem('dok_google_token');
+                localStorage.removeItem('dok_google_expires_at');
             }
         }
 
         async function verifyAndSyncData(isSilent) {
             try {
-                updateAuthButtonUI(true);
+                setAuthButtonUI('syncing');
                 const response = await gapi.client.drive.files.list({
                     q: "name = 'dok_archive_backup.json' and 'appDataFolder' in parents and trashed = false",
                     spaces: 'appDataFolder',
@@ -1296,11 +1323,12 @@
                 } else {
                     await uploadDataToGoogleDrive();
                 }
+                setAuthButtonUI('linked');
+                if (!isSilent) alert('구글 드라이브와 성공적으로 연동되었습니다!');
             } catch (err) {
                 console.error(err);
                 if (!isSilent) alert('구글 드라이브 동기화 중 오류가 발생했습니다.');
-                updateAuthButtonUI(false);
-                localStorage.removeItem('dok_google_token');
+                setAuthButtonUI('unlinked');
             }
         }
 
