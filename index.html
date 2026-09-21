@@ -100,33 +100,33 @@
         .header-wrap {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 12px 24px;
+            padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
         }
 
         .header-left-group {
             display: flex;
             align-items: center;
-            gap: 20px;
+            gap: 14px;
             min-width: 0;
         }
 
         .brand-title {
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             font-weight: 700;
             letter-spacing: -0.01em;
             color: var(--text-main);
             flex-shrink: 0;
             display: flex;
             align-items: baseline;
-            gap: 6px;
+            gap: 4px;
         }
 
         .brand-sub-hanja {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             font-weight: 400;
             color: var(--text-sub);
             letter-spacing: 0.05em;
@@ -136,8 +136,8 @@
             display: flex;
             gap: 2px;
             background: var(--surface-solid);
-            padding: 3px;
-            border-radius: 12px;
+            padding: 2px;
+            border-radius: 10px;
             border: 1px solid var(--border-color);
         }
 
@@ -145,10 +145,10 @@
             background: transparent;
             border: none;
             color: var(--text-sub);
-            height: 32px;
-            padding: 0 14px;
-            border-radius: 9px;
-            font-size: 0.82rem;
+            height: 30px;
+            padding: 0 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -162,13 +162,13 @@
             background: var(--surface-hover);
             color: var(--text-main);
             font-weight: 600;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
         }
 
         .header-right-group {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-shrink: 0;
         }
 
@@ -176,16 +176,17 @@
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            width: 36px;
-            height: 36px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             box-shadow: var(--shadow-sub);
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
         .icon-btn:hover {
             background: var(--surface-hover);
@@ -196,17 +197,19 @@
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
             color: var(--text-main);
-            height: 36px;
-            padding: 0 14px;
-            border-radius: 18px;
-            font-size: 0.78rem;
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 17px;
+            font-size: 0.76rem;
             font-weight: 500;
             cursor: pointer;
             box-shadow: var(--shadow-sub);
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             transition: all 0.2s ease;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .google-auth-btn:hover {
             background: var(--surface-hover);
@@ -218,26 +221,33 @@
         }
 
         .record-badge {
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             color: var(--text-sub);
             background: var(--surface-solid);
             border: 1px solid var(--border-color);
-            height: 36px;
-            padding: 0 14px;
-            border-radius: 18px;
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 17px;
             font-weight: 500;
             box-shadow: var(--shadow-sub);
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         .record-count {
             color: var(--text-main);
             font-weight: 600;
         }
 
-        @media (max-width: 640px) {
-            .header-wrap { padding: 10px 16px; }
+        @media (max-width: 768px) {
+            .header-wrap { padding: 8px 12px; gap: 4px; }
+            .header-left-group { gap: 8px; }
+            .brand-sub-hanja { display: none; }
+            .nav-tab-btn { height: 28px; padding: 0 8px; font-size: 0.76rem; }
+            .google-auth-btn { height: 32px; padding: 0 10px; font-size: 0.74rem; }
+            .icon-btn { width: 32px; height: 32px; }
             .record-badge { display: none; }
         }
 
@@ -1207,7 +1217,7 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: '', // 나중에 동적으로 처리
+                callback: '',
             });
             gisInited = true;
             maybeEnableGoogleFeature();
@@ -1215,7 +1225,6 @@
 
         function maybeEnableGoogleFeature() {
             if (gapiInited && gisInited) {
-                // 이미 인증 토큰이 기억되어 있다면 자동 동기화 시도 가능
                 const savedToken = localStorage.getItem('dok_google_token');
                 if (savedToken) {
                     gapi.client.setToken({ access_token: savedToken });
@@ -1258,7 +1267,6 @@
         async function verifyAndSyncData(isSilent) {
             try {
                 updateAuthButtonUI(true);
-                // 드라이브 내 앱 전용 폴더에서 백업 파일 찾기
                 const response = await gapi.client.drive.files.list({
                     q: "name = 'dok_archive_backup.json' and 'appDataFolder' in parents and trashed = false",
                     spaces: 'appDataFolder',
@@ -1267,7 +1275,6 @@
                 const files = response.result.files;
                 if (files && files.length > 0) {
                     googleFileId = files[0].id;
-                    // 파일 내용 불러오기
                     const fileResponse = await gapi.client.drive.files.get({
                         fileId: googleFileId,
                         alt: 'media',
@@ -1285,10 +1292,8 @@
                         localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
                         renderMemos();
                         renderTodos();
-                        if (!isSilent) console.log('구글 드라이브에서 데이터를 불러왔습니다.');
                     }
                 } else {
-                    // 파일이 없으면 최초 생성
                     await uploadDataToGoogleDrive();
                 }
             } catch (err) {
@@ -1348,7 +1353,6 @@
             }
         }
 
-        // 구글 스크립트 비동기 로드 트리거
         window.onload = function() {
             gapiLoaded();
             gisLoaded();
