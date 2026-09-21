@@ -1196,7 +1196,7 @@
     </section>
 
     <script>
-        // --- 구글 드라이브 연동 설정 ---
+        // --- 구글 드라이브 연동 설정 (모바일 호환 Redirect 방식 적용) ---
         const CLIENT_ID = '723588980151-8fevqbb44ef0finvco6ikmc5969h88e2.apps.googleusercontent.com';
         const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
         let tokenClient;
@@ -1221,18 +1221,8 @@
             tokenClient = google.accounts.oauth2.initTokenClient({
                 client_id: CLIENT_ID,
                 scope: SCOPES,
-                callback: async (resp) => {
-                    if (resp.error !== undefined) {
-                        setAuthButtonUI('unlinked');
-                        return;
-                    }
-                    const expiresAt = new Date().getTime() + (resp.expires_in * 1000);
-                    localStorage.setItem('dok_google_token', resp.access_token);
-                    localStorage.setItem('dok_google_expires_at', expiresAt);
-                    
-                    gapi.client.setToken({ access_token: resp.access_token });
-                    await verifyAndSyncData(false);
-                }
+                ux_mode: 'redirect', // 팝업 차단을 우회하기 위해 페이지 리디렉션 방식 사용
+                callback: '', // redirect 모드에서는 빈 값으로 두거나 콜백을 직접 제어
             });
             gisInited = true;
             maybeEnableGoogleFeature();
@@ -1251,14 +1241,26 @@
             const now = new Date().getTime();
 
             if (savedToken && expiresAt && now < expiresAt) {
-                // 1. 유효한 토큰이 로컬에 있으면 바로 적용
                 gapi.client.setToken({ access_token: savedToken });
                 await verifyAndSyncData(true);
             } else {
-                // 2. 토큰이 만료되었거나 없지만 구글 세션이 남아있다면 백그라운드에서 자동 로그인 시도
-                setAuthButtonUI('syncing');
+                // 저장된 토큰이 만료되었거나 없으면 자동 로그인 시도 (prompt: 'none')
                 try {
-                    tokenClient.requestAccessToken({ prompt: 'none' });
+                    // 백그라운드 silent 갱신을 위해 임시로 popup 모드 혹은 자동 복원 시도
+                    const silentClient = google.accounts.oauth2.initTokenClient({
+                        client_id: CLIENT_ID,
+                        scope: SCOPES,
+                        callback: async (resp) => {
+                            if (resp.access_token) {
+                                const newExpires = new Date().getTime() + (resp.expires_in * 1000);
+                                localStorage.setItem('dok_google_token', resp.access_token);
+                                localStorage.setItem('dok_google_expires_at', newExpires);
+                                gapi.client.setToken({ access_token: resp.access_token });
+                                await verifyAndSyncData(true);
+                            }
+                        }
+                    });
+                    silentClient.requestAccessToken({ prompt: 'none' });
                 } catch (e) {
                     setAuthButtonUI('unlinked');
                 }
@@ -1267,6 +1269,7 @@
 
         window.handleGoogleAuth = function() {
             setAuthButtonUI('syncing');
+            // 사용자가 버튼을 눌렀을 때는 확실하게 인증 페이지로 이동(Redirect)하여 모바일 차단 방지
             tokenClient.requestAccessToken({ prompt: 'consent' });
         }
 
@@ -1952,7 +1955,7 @@
 
         window.copyLabCodeDirect = function() {
             if (!labCodeInput.value.trim()) {
-                alert("복사할 코드가 없습니다.");
+                alert("코드가 없습니다.");
                 return;
             }
 
