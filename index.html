@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>DOK : 讀 - Archive & Lab</title>
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Google API 스크립트 로드 -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="https://apis.google.com/js/api.js" async defer></script>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -123,6 +120,12 @@
             display: flex;
             align-items: baseline;
             gap: 3px;
+            cursor: pointer;
+            user-select: none;
+            transition: opacity 0.2s;
+        }
+        .brand-title:hover {
+            opacity: 0.75;
         }
 
         .brand-sub-hanja {
@@ -193,37 +196,6 @@
             border-color: var(--border-focus);
         }
 
-        .google-auth-btn {
-            background: var(--surface-solid);
-            border: 1px solid var(--border-color);
-            color: var(--text-main);
-            height: 32px;
-            padding: 0 10px;
-            border-radius: 16px;
-            font-size: 0.73rem;
-            font-weight: 500;
-            cursor: pointer;
-            box-shadow: var(--shadow-sub);
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .google-auth-btn:hover:not(:disabled) {
-            background: var(--surface-hover);
-            border-color: var(--border-focus);
-        }
-        .google-auth-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        .google-auth-btn.linked {
-            border-color: var(--text-main);
-            font-weight: 600;
-        }
-
         .record-badge {
             font-size: 0.73rem;
             color: var(--text-sub);
@@ -250,7 +222,6 @@
             .header-left-group { gap: 6px; }
             .brand-sub-hanja { display: none; }
             .nav-tab-btn { height: 26px; padding: 0 6px; font-size: 0.72rem; }
-            .google-auth-btn { height: 30px; padding: 0 8px; font-size: 0.7rem; }
             .icon-btn { width: 30px; height: 30px; }
             .record-badge { display: none; }
         }
@@ -1039,7 +1010,7 @@
     <header>
         <div class="header-wrap">
             <div class="header-left-group">
-                <span class="brand-title">
+                <span class="brand-title" onclick="switchMainView('archive')">
                     DOK <span class="brand-sub-hanja">: 讀</span>
                 </span>
                 <div class="nav-tabs">
@@ -1049,7 +1020,6 @@
                 </div>
             </div>
             <div class="header-right-group">
-                <button class="google-auth-btn" id="googleAuthBtn" onclick="handleGoogleAuth()">연동</button>
                 <div class="record-badge" id="recordBadgeWrap">
                     Total <span class="record-count" id="recordCount">0</span>
                 </div>
@@ -1165,6 +1135,7 @@
                 <div class="form-group">
                     <label class="form-label">카테고리</label>
                     <select class="form-select" id="memoCategory">
+                        <option value="" disabled selected>카테고리를 선택하세요</option>
                         <option value="아이디어">아이디어</option>
                         <option value="세계관">세계관</option>
                         <option value="캐릭터">캐릭터</option>
@@ -1196,200 +1167,7 @@
     </section>
 
     <script>
-        // --- 구글 드라이브 연동 설정 (모바일 호환 Redirect 방식 적용) ---
-        const CLIENT_ID = '723588980151-8fevqbb44ef0finvco6ikmc5969h88e2.apps.googleusercontent.com';
-        const SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
-        let tokenClient;
-        let gapiInited = false;
-        let gisInited = false;
-        let isGoogleLinked = false;
-        let googleFileId = null;
-
-        function gapiLoaded() {
-            gapi.load('client', initializeGapiClient);
-        }
-
-        async function initializeGapiClient() {
-            await gapi.client.init({
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
-            });
-            gapiInited = true;
-            maybeEnableGoogleFeature();
-        }
-
-        function gisLoaded() {
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: CLIENT_ID,
-                scope: SCOPES,
-                ux_mode: 'redirect', // 팝업 차단을 우회하기 위해 페이지 리디렉션 방식 사용
-                callback: '', // redirect 모드에서는 빈 값으로 두거나 콜백을 직접 제어
-            });
-            gisInited = true;
-            maybeEnableGoogleFeature();
-        }
-
-        function maybeEnableGoogleFeature() {
-            if (gapiInited && gisInited) {
-                checkAndRestoreLogin();
-            }
-        }
-
-        // 로그인 상태 체크 및 자동 복원 / 자동 로그인 시도
-        async function checkAndRestoreLogin() {
-            const savedToken = localStorage.getItem('dok_google_token');
-            const expiresAt = localStorage.getItem('dok_google_expires_at');
-            const now = new Date().getTime();
-
-            if (savedToken && expiresAt && now < expiresAt) {
-                gapi.client.setToken({ access_token: savedToken });
-                await verifyAndSyncData(true);
-            } else {
-                // 저장된 토큰이 만료되었거나 없으면 자동 로그인 시도 (prompt: 'none')
-                try {
-                    // 백그라운드 silent 갱신을 위해 임시로 popup 모드 혹은 자동 복원 시도
-                    const silentClient = google.accounts.oauth2.initTokenClient({
-                        client_id: CLIENT_ID,
-                        scope: SCOPES,
-                        callback: async (resp) => {
-                            if (resp.access_token) {
-                                const newExpires = new Date().getTime() + (resp.expires_in * 1000);
-                                localStorage.setItem('dok_google_token', resp.access_token);
-                                localStorage.setItem('dok_google_expires_at', newExpires);
-                                gapi.client.setToken({ access_token: resp.access_token });
-                                await verifyAndSyncData(true);
-                            }
-                        }
-                    });
-                    silentClient.requestAccessToken({ prompt: 'none' });
-                } catch (e) {
-                    setAuthButtonUI('unlinked');
-                }
-            }
-        }
-
-        window.handleGoogleAuth = function() {
-            setAuthButtonUI('syncing');
-            // 사용자가 버튼을 눌렀을 때는 확실하게 인증 페이지로 이동(Redirect)하여 모바일 차단 방지
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-        }
-
-        function setAuthButtonUI(status) {
-            const btn = document.getElementById('googleAuthBtn');
-            if (status === 'linked') {
-                isGoogleLinked = true;
-                btn.innerText = '연동됨 ✓';
-                btn.disabled = false;
-                btn.classList.add('linked');
-            } else if (status === 'syncing') {
-                btn.innerText = '연동 중...';
-                btn.disabled = true;
-                btn.classList.remove('linked');
-            } else {
-                isGoogleLinked = false;
-                btn.innerText = '연동';
-                btn.disabled = false;
-                btn.classList.remove('linked');
-                localStorage.removeItem('dok_google_token');
-                localStorage.removeItem('dok_google_expires_at');
-            }
-        }
-
-        async function verifyAndSyncData(isSilent) {
-            try {
-                setAuthButtonUI('syncing');
-                const response = await gapi.client.drive.files.list({
-                    q: "name = 'dok_archive_backup.json' and 'appDataFolder' in parents and trashed = false",
-                    spaces: 'appDataFolder',
-                    fields: 'files(id, name)',
-                });
-                const files = response.result.files;
-                if (files && files.length > 0) {
-                    googleFileId = files[0].id;
-                    const fileResponse = await gapi.client.drive.files.get({
-                        fileId: googleFileId,
-                        alt: 'media',
-                    });
-                    const cloudData = fileResponse.result;
-                    if (cloudData) {
-                        if (cloudData.memos) memos = cloudData.memos;
-                        if (cloudData.todos) todos = cloudData.todos;
-                        if (cloudData.labCode) {
-                            document.getElementById('labCodeInput').value = cloudData.labCode;
-                            updateLabCharCount();
-                            updateLabPreview();
-                        }
-                        localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
-                        localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
-                        renderMemos();
-                        renderTodos();
-                    }
-                } else {
-                    await uploadDataToGoogleDrive();
-                }
-                setAuthButtonUI('linked');
-                if (!isSilent) alert('구글 드라이브와 성공적으로 연동되었습니다!');
-            } catch (err) {
-                console.error(err);
-                if (!isSilent) alert('구글 드라이브 동기화 중 오류가 발생했습니다.');
-                setAuthButtonUI('unlinked');
-            }
-        }
-
-        async function syncDataToCloud() {
-            if (!isGoogleLinked) return;
-            try {
-                await uploadDataToGoogleDrive();
-            } catch (e) {
-                console.error('자동 백업 실패:', e);
-            }
-        }
-
-        async function uploadDataToGoogleDrive() {
-            const dataToSave = {
-                memos: memos,
-                todos: todos,
-                labCode: document.getElementById('labCodeInput').value
-            };
-            const boundary = '-------314159265358979323846';
-            const delimiter = "\r\n--" + boundary + "\r\n";
-            const close_delim = "\r\n--" + boundary + "--";
-
-            const metadata = {
-                name: 'dok_archive_backup.json',
-                mimeType: 'application/json',
-                ...(googleFileId ? {} : { parents: ['appDataFolder'] })
-            };
-
-            const multipartRequestBody =
-                delimiter +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                JSON.stringify(metadata) +
-                delimiter +
-                'Content-Type: application/json\r\n\r\n' +
-                JSON.stringify(dataToSave) +
-                close_delim;
-
-            const request = gapi.client.request({
-                path: googleFileId ? `/upload/drive/v3/files/${googleFileId}` : '/upload/drive/v3/files?uploadType=multipart',
-                method: googleFileId ? 'PATCH' : 'POST',
-                headers: {
-                    'Content-Type': 'multipart/related; boundary="' + boundary + '"',
-                },
-                body: multipartRequestBody
-            });
-
-            const response = await request;
-            if (!googleFileId && response.result && response.result.id) {
-                googleFileId = response.result.id;
-            }
-        }
-
-        window.onload = function() {
-            gapiLoaded();
-            gisLoaded();
-        };
-
-        // --- 기존 UI 및 로직 ---
+        // --- 테마 설정 ---
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const htmlElement = document.documentElement;
 
@@ -1454,7 +1232,6 @@
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             todoInput.value = '';
             renderTodos();
-            syncDataToCloud();
         }
 
         window.toggleTodo = function(id) {
@@ -1466,14 +1243,12 @@
             });
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             renderTodos();
-            syncDataToCloud();
         }
 
         window.deleteTodo = function(id) {
             todos = todos.filter(t => t.id !== id);
             localStorage.setItem('haesang_todos_mono', JSON.stringify(todos));
             renderTodos();
-            syncDataToCloud();
         }
 
         function renderTodos() {
@@ -1497,6 +1272,7 @@
             });
         }
 
+        // --- 아카이브(메모) 데이터 관리 ---
         let memos = JSON.parse(localStorage.getItem('haesang_memos_mono')) || [];
         let currentCategory = "전체";
         let searchQuery = "";
@@ -1547,9 +1323,12 @@
             if (draft) {
                 try {
                     const data = JSON.parse(draft);
-                    memoCategoryInput.value = data.category || "아이디어";
+                    memoCategoryInput.value = data.category || "";
                     memoTitleInput.value = data.title || "";
                     memoContentInput.value = data.content || "";
+                    if (!memoCategoryInput.value) {
+                        memoCategoryInput.value = "";
+                    }
                     if (data.image) {
                         uploadedImageBase64 = data.image;
                         previewThumbImg.src = uploadedImageBase64;
@@ -1558,7 +1337,11 @@
                         fileUploadLabelText.innerText = "임시저장된 이미지";
                     }
                     updateCharCount();
-                } catch (e) {}
+                } catch (e) {
+                    memoCategoryInput.value = "";
+                }
+            } else {
+                memoCategoryInput.value = "";
             }
         }
 
@@ -1689,9 +1472,15 @@
         });
 
         saveMemoBtn.addEventListener('click', () => {
+            const categoryVal = memoCategoryInput.value;
             const titleVal = memoTitleInput.value.trim();
             const contentVal = memoContentInput.value.trim();
 
+            if (!categoryVal) {
+                alert("카테고리를 선택해주세요.");
+                memoCategoryInput.focus();
+                return;
+            }
             if (!titleVal || !contentVal) {
                 alert("제목과 내용을 모두 입력해주세요.");
                 return;
@@ -1732,7 +1521,6 @@
             localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
             switchMainView('archive');
             renderMemos();
-            syncDataToCloud();
         });
 
         window.openEditEditor = function(id) {
@@ -1740,7 +1528,7 @@
             if (!memo) return;
 
             memoIdInput.value = memo.id;
-            memoCategoryInput.value = memo.category;
+            memoCategoryInput.value = memo.category || "";
             memoTitleInput.value = memo.title;
             memoContentInput.value = memo.content;
             
@@ -1772,7 +1560,6 @@
                 memos = memos.filter(m => m.id !== id);
                 localStorage.setItem('haesang_memos_mono', JSON.stringify(memos));
                 renderMemos();
-                syncDataToCloud();
             }
         }
 
@@ -1785,13 +1572,13 @@
             });
         });
 
+        // --- HTML 랩(Lab) 뷰 관리 ---
         const labCodeInput = document.getElementById('labCodeInput');
         const labPreviewContent = document.getElementById('labPreviewContent');
         const labCharCounter = document.getElementById('labCharCounter');
         const zoomLevelText = document.getElementById('zoomLevelText');
         const labContainer = document.getElementById('labContainer');
         const fullscreenToggleBtn = document.getElementById('fullscreenToggleBtn');
-        const labChatbarContainer = document.getElementById('labChatbarContainer');
         const chatbarToggleBtn = document.getElementById('chatbarToggleBtn');
         const labPreviewWrapper = document.getElementById('labPreviewWrapper');
         const pcModeBtn = document.getElementById('pcModeBtn');
@@ -1801,6 +1588,13 @@
         let isFullscreen = false;
         let isExpanded = false;
         let isMobileDeviceMode = false;
+
+        const savedLabCode = localStorage.getItem('haesang_labcode_mono');
+        if (savedLabCode) {
+            labCodeInput.value = savedLabCode;
+            updateLabCharCount();
+            updateLabPreview();
+        }
 
         window.setPreviewDevice = function(mode) {
             if (mode === 'mobile') {
@@ -1831,13 +1625,13 @@
         labCodeInput.addEventListener('input', () => {
             updateLabCharCount();
             updateLabPreview();
+            localStorage.setItem('haesang_labcode_mono', labCodeInput.value);
 
             labCodeInput.style.height = 'auto';
             let newHeight = labCodeInput.scrollHeight;
             if (newHeight > 200) newHeight = 200;
             if (newHeight < 44) newHeight = 44;
             labCodeInput.style.height = newHeight + 'px';
-            syncDataToCloud();
         });
 
         labPreviewContent.addEventListener('click', (e) => {
@@ -1949,8 +1743,8 @@
             chatbarToggleBtn.innerText = '▲';
             updateLabCharCount();
             updateLabPreview();
+            localStorage.removeItem('haesang_labcode_mono');
             labCodeInput.focus();
-            syncDataToCloud();
         };
 
         window.copyLabCodeDirect = function() {
@@ -1970,6 +1764,7 @@
             }
         };
 
+        // 초기 렌더링
         renderMemos();
         updateLabPreview();
     </script>
